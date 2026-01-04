@@ -6,6 +6,7 @@
 
 import { Agent } from "@mastra/core/agent";
 import { Memory } from "@mastra/memory";
+import { LibSQLStore, LibSQLVector } from "@mastra/libsql";
 import { shoppingTools } from "../tools/shopping-tools";
 
 /**
@@ -16,6 +17,13 @@ import { shoppingTools } from "../tools/shopping-tools";
  * - Semantic Recall: 過去の会話から関連情報を検索
  */
 const shoppingMemory = new Memory({
+  // ストレージとベクトルDBの設定（Semantic Recallに必要）
+  storage: new LibSQLStore({
+    url: "file:./shopping-memory.db",
+  }),
+  vector: new LibSQLVector({
+    connectionUrl: "file:./shopping-memory.db",
+  }),
   options: {
     // 直近20件のメッセージを保持
     lastMessages: 20,
