@@ -24,6 +24,8 @@ const shoppingMemory = new Memory({
   vector: new LibSQLVector({
     connectionUrl: "file:./shopping-memory.db",
   }),
+  // Embedder設定（Semantic Recallに必要）
+  embedder: "openai/text-embedding-3-small",
   options: {
     // 直近20件のメッセージを保持
     lastMessages: 20,
