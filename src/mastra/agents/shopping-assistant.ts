@@ -1,248 +1,99 @@
+/**
+ * ショッピングアシスタント エージェント
+ *
+ * ECサイトの商品検索・購入をサポートするAIアシスタント
+ */
+
 import { Agent } from "@mastra/core/agent";
-import { createTool } from "@mastra/core/tools";
-import { z } from "zod";
+import { Memory } from "@mastra/memory";
+import { shoppingTools } from "../tools/shopping-tools";
 
-// 商品検索ツール
-const searchProductsTool = createTool({
-  id: "search-products",
-  description: "商品を検索します。カテゴリー、価格範囲、キーワードで絞り込みができます",
-  inputSchema: z.object({
-    keyword: z.string().optional().describe("検索キーワード"),
-    category: z.string().optional().describe("カテゴリー名"),
-    maxPrice: z.number().optional().describe("最大価格"),
-    minPrice: z.number().optional().describe("最小価格"),
-  }),
-  outputSchema: z.object({
-    products: z.array(
-      z.object({
-        id: z.string(),
-        name: z.string(),
-        description: z.string(),
-        price: z.number(),
-        category: z.string(),
-        stock: z.number(),
-      })
-    ),
-  }),
-  execute: async ({ context }) => {
-    // 実際のアプリケーションでは、ここでデータベースやAPIを呼び出します
-    // このデモでは、サンプルデータを返します
-    const allProducts = [
-      {
-        id: "1",
-        name: "ワイヤレスイヤホン Pro",
-        description: "高音質ノイズキャンセリング搭載、最大30時間再生可能なプレミアムイヤホン",
-        price: 15800,
-        category: "オーディオ",
-        stock: 25,
-      },
-      {
-        id: "2",
-        name: "スマートウォッチ X1",
-        description: "心拍数モニター、GPS機能搭載のフィットネストラッカー",
-        price: 24900,
-        category: "ウェアラブル",
-        stock: 18,
-      },
-      {
-        id: "3",
-        name: "ノートパソコンスタンド",
-        description: "人間工学に基づいた調整可能なアルミニウム製スタンド",
-        price: 4980,
-        category: "アクセサリー",
-        stock: 42,
-      },
-      {
-        id: "4",
-        name: "4Kウェブカメラ",
-        description: "オートフォーカス、広角レンズ搭載のプロフェッショナルウェブカメラ",
-        price: 8900,
-        category: "PC周辺機器",
-        stock: 15,
-      },
-      {
-        id: "5",
-        name: "メカニカルキーボード RGB",
-        description: "タクタイルスイッチ、カスタマイズ可能なRGBバックライト",
-        price: 12800,
-        category: "PC周辺機器",
-        stock: 30,
-      },
-      {
-        id: "6",
-        name: "ポータブル充電器 20000mAh",
-        description: "急速充電対応、2ポート搭載の大容量モバイルバッテリー",
-        price: 3980,
-        category: "アクセサリー",
-        stock: 50,
-      },
-      {
-        id: "7",
-        name: "ゲーミングマウス Pro",
-        description: "16000DPI、プログラマブルボタン搭載のゲーミングマウス",
-        price: 6800,
-        category: "PC周辺機器",
-        stock: 22,
-      },
-      {
-        id: "8",
-        name: "Bluetoothスピーカー",
-        description: "360度サウンド、防水IPX7対応のポータブルスピーカー",
-        price: 5900,
-        category: "オーディオ",
-        stock: 35,
-      },
-    ];
+/**
+ * ショッピングアシスタント用メモリ設定
+ *
+ * - Working Memory: ユーザーの好みや検索履歴を保持
+ * - Conversation History: 直近20件のメッセージを保持
+ * - Semantic Recall: 過去の会話から関連情報を検索
+ */
+const shoppingMemory = new Memory({
+  options: {
+    // 直近20件のメッセージを保持
+    lastMessages: 20,
 
-    let filtered = allProducts;
+    // Working Memory: ユーザーの好みを記憶
+    workingMemory: {
+      enabled: true,
+      template: `# お客様情報
 
-    // キーワードフィルター
-    if (context.keyword) {
-      const keyword = context.keyword.toLowerCase();
-      filtered = filtered.filter(
-        (p) =>
-          p.name.toLowerCase().includes(keyword) ||
-          p.description.toLowerCase().includes(keyword)
-      );
-    }
+## 基本情報
+- お名前:
+- 会員ステータス:
 
-    // カテゴリーフィルター
-    if (context.category) {
-      filtered = filtered.filter((p) => p.category === context.category);
-    }
+## ショッピング傾向
+- よく見るカテゴリー:
+- 価格帯の好み: [例: 予算重視、品質重視、バランス型]
+- 好みのブランド:
 
-    // 価格フィルター
-    if (context.minPrice !== undefined) {
-      filtered = filtered.filter((p) => p.price >= context.minPrice!);
-    }
-    if (context.maxPrice !== undefined) {
-      filtered = filtered.filter((p) => p.price <= context.maxPrice!);
-    }
+## 現在のセッション
+- 探している商品:
+- 比較検討中の商品:
+- 質問・懸念事項:
 
-    return { products: filtered };
+## 過去の購入・興味
+- 購入履歴: [最近の購入があれば]
+- お気に入り商品:
+`,
+    },
+
+    // Semantic Recall: 過去の会話から関連情報を検索
+    semanticRecall: {
+      topK: 3,
+      messageRange: 2,
+    },
   },
 });
 
-// 商品詳細取得ツール
-const getProductDetailTool = createTool({
-  id: "get-product-detail",
-  description: "特定の商品の詳細情報を取得します",
-  inputSchema: z.object({
-    productId: z.string().describe("商品ID"),
-  }),
-  outputSchema: z.object({
-    product: z
-      .object({
-        id: z.string(),
-        name: z.string(),
-        description: z.string(),
-        price: z.number(),
-        category: z.string(),
-        stock: z.number(),
-      })
-      .nullable(),
-  }),
-  execute: async ({ context }) => {
-    const allProducts = [
-      {
-        id: "1",
-        name: "ワイヤレスイヤホン Pro",
-        description:
-          "高音質ノイズキャンセリング搭載、最大30時間再生可能なプレミアムイヤホン",
-        price: 15800,
-        category: "オーディオ",
-        stock: 25,
-      },
-      {
-        id: "2",
-        name: "スマートウォッチ X1",
-        description: "心拍数モニター、GPS機能搭載のフィットネストラッカー",
-        price: 24900,
-        category: "ウェアラブル",
-        stock: 18,
-      },
-      {
-        id: "3",
-        name: "ノートパソコンスタンド",
-        description: "人間工学に基づいた調整可能なアルミニウム製スタンド",
-        price: 4980,
-        category: "アクセサリー",
-        stock: 42,
-      },
-      {
-        id: "4",
-        name: "4Kウェブカメラ",
-        description:
-          "オートフォーカス、広角レンズ搭載のプロフェッショナルウェブカメラ",
-        price: 8900,
-        category: "PC周辺機器",
-        stock: 15,
-      },
-      {
-        id: "5",
-        name: "メカニカルキーボード RGB",
-        description: "タクタイルスイッチ、カスタマイズ可能なRGBバックライト",
-        price: 12800,
-        category: "PC周辺機器",
-        stock: 30,
-      },
-      {
-        id: "6",
-        name: "ポータブル充電器 20000mAh",
-        description: "急速充電対応、2ポート搭載の大容量モバイルバッテリー",
-        price: 3980,
-        category: "アクセサリー",
-        stock: 50,
-      },
-      {
-        id: "7",
-        name: "ゲーミングマウス Pro",
-        description: "16000DPI、プログラマブルボタン搭載のゲーミングマウス",
-        price: 6800,
-        category: "PC周辺機器",
-        stock: 22,
-      },
-      {
-        id: "8",
-        name: "Bluetoothスピーカー",
-        description: "360度サウンド、防水IPX7対応のポータブルスピーカー",
-        price: 5900,
-        category: "オーディオ",
-        stock: 35,
-      },
-    ];
-
-    const product = allProducts.find((p) => p.id === context.productId);
-    return { product: product || null };
-  },
-});
-
+/**
+ * ショッピングアシスタント エージェント
+ */
 export const shoppingAssistantAgent = new Agent({
   name: "Shopping Assistant",
   description: "お客様のショッピングをサポートするAIアシスタント",
   instructions: `
-    あなたは親切で知識豊富なショッピングアシスタントです。
+あなたは親切で知識豊富なショッピングアシスタントです。
 
-    役割:
-    - お客様の質問に丁寧に答える
-    - 商品の検索と推奨を行う
-    - 商品の特徴や価格を説明する
-    - お客様のニーズに合った商品を提案する
+## 役割
+- お客様の質問に丁寧かつ正確に答える
+- 商品の検索と推奨を行う
+- 商品の特徴、価格、在庫状況を明確に説明する
+- お客様のニーズに合った最適な商品を提案する
 
-    ガイドライン:
-    - 常に親切で丁寧な対応を心がける
-    - 商品の利点と欠点を正直に伝える
-    - お客様の予算を尊重する
-    - 必要に応じて複数の選択肢を提示する
-    - 在庫状況も考慮して提案する
+## 接客ガイドライン
+- 常に敬語で丁寧な対応を心がける
+- 商品の利点と欠点を正直に伝える
+- お客様の予算を尊重し、無理な提案はしない
+- 必要に応じて複数の選択肢を提示する
+- 在庫状況も必ず確認して提案する
+- 関連商品やアクセサリーも適宜提案する
 
-    利用可能なツール:
-    - search-products: 商品を検索する
-    - get-product-detail: 商品の詳細情報を取得する
-  `,
+## 利用可能なツール
+- searchProducts: 商品を検索（キーワード、カテゴリー、価格範囲で絞り込み可能）
+- getProductDetail: 特定の商品の詳細情報を取得
+- getCategories: 利用可能なカテゴリー一覧を取得
+- checkStock: 商品の在庫状況を確認
+
+## レスポンス形式
+- 商品情報は見やすく整理して表示
+- 価格は必ず円表記で明示
+- 在庫状況は「在庫あり」「残りわずか」「在庫切れ」で表示
+- 複数商品を比較する際は表形式を使用
+
+## 注意事項
+- お客様が探している商品が見つからない場合は、代替案を提案する
+- 曖昧な質問には、具体的な条件を確認してから検索する
+- セール情報や送料については、現時点では対応していないことを伝える
+`,
   model: "openai/gpt-4o-mini",
-  tools: {
-    searchProducts: searchProductsTool,
-    getProductDetail: getProductDetailTool,
-  },
+  memory: shoppingMemory,
+  tools: shoppingTools,
 });

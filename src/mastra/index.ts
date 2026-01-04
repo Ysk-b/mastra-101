@@ -1,31 +1,54 @@
+/**
+ * Mastra インスタンス設定
+ *
+ * ショッピングアシスタント専用の設定
+ */
 
-import { Mastra } from '@mastra/core/mastra';
-import { PinoLogger } from '@mastra/loggers';
-import { LibSQLStore } from '@mastra/libsql';
-import { weatherWorkflow } from './workflows/weather-workflow';
-import { contentWorkflow, aiContentWorkflow, parallelAnalysisWorkflow, conditionalWorkflow } from './workflows/content-workflow';
-import { weatherAgent } from './agents/weather-agent';
-import { financialAgent } from './agents/financial-agent';
-import { memoryAgent } from './agents';
-import { learningAssistantAgent } from './agents/learning-assistant';
-import { contentAgent } from './agents/content-agent';
-import { shoppingAssistantAgent } from './agents/shopping-assistant';
-import { toolCallAppropriatenessScorer, completenessScorer, translationScorer } from './scorers/weather-scorer';
+import { Mastra } from "@mastra/core/mastra";
+import { PinoLogger } from "@mastra/loggers";
+import { LibSQLStore } from "@mastra/libsql";
+
+// Workflows
+import {
+  productRecommendationWorkflow,
+  stockCheckWorkflow,
+} from "./workflows/shopping-workflow";
+
+// Agents
+import { shoppingAssistantAgent } from "./agents/shopping-assistant";
+
+// Scorers
+import {
+  productSearchAccuracyScorer,
+  priceAccuracyScorer,
+  customerServiceQualityScorer,
+  stockInfoAccuracyScorer,
+} from "./scorers/shopping-scorer";
 
 export const mastra = new Mastra({
-  workflows: { weatherWorkflow, contentWorkflow, aiContentWorkflow, parallelAnalysisWorkflow, conditionalWorkflow },
-  agents: { weatherAgent, financialAgent, memoryAgent, learningAssistantAgent, contentAgent, shoppingAssistantAgent },
-  scorers: { toolCallAppropriatenessScorer, completenessScorer, translationScorer },
+  workflows: {
+    productRecommendationWorkflow,
+    stockCheckWorkflow,
+  },
+  agents: {
+    shoppingAssistantAgent,
+  },
+  scorers: {
+    productSearchAccuracyScorer,
+    priceAccuracyScorer,
+    customerServiceQualityScorer,
+    stockInfoAccuracyScorer,
+  },
   storage: new LibSQLStore({
-    // stores observability, scores, ... into memory storage, if it needs to persist, change to file:../mastra.db
+    // メモリ内ストレージ（永続化する場合は file:../mastra.db に変更）
     url: ":memory:",
   }),
   logger: new PinoLogger({
-    name: 'Mastra',
-    level: 'info',
+    name: "Mastra",
+    level: "info",
   }),
   observability: {
-    // Enables DefaultExporter and CloudExporter for AI tracing
+    // AIトレーシングを有効化
     default: { enabled: true },
   },
 });
